@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        overflow: hidden;
+      }
+    </style>
+  </head>
+  <body>
+    <script src="db.json" id="db"></script>
+    <script type="module">
+      const state = {
+        title: "",
+        html: "",
+        db: null,
+        selected_template: null,
+        selected_context: null,
+        select_context_node: null,
+        select_slug_node: null,
+        select_template_node: null,
+        create_component_node: null,
+        copy_component_node: null,
+        target_iframe: null,
+        description_node: null,
+      };
+      const toolbar = document.createElement("div");
+      toolbar.style =
+        "position: fixed; padding: 1rem; bottom: 1rem; left: 50%; transform: translateX(-50%); display: flex; gap: .4rem;";
+
+      async function loadDB() {
+        try {
+          const node = document.querySelector("#db");
+          const file = node.getAttribute("src");
+          const response = await fetch(file);
+          const json = await response.json();
+          state.db = json;
+          return json;
+        } catch (error) {
+          throw new Error(`Load DB error.`);
+        }
+      }
+      function createTargetNode() {
+        const iframe = document.createElement("iframe");
+        iframe.style = "width: 100vw; height: 100vh; overflow-y: auto";
+        state.target_iframe = iframe;
+        document.body.appendChild(iframe);
+      }
+      function parsePrice(product, slug) {
+        const currencies = {
+          euro: "€",
+          swissFranc: "Fr.",
+          poundSterling: "£",
+          hungarianForint: "Ft",
+          swedishKrona: ":-",
+          danishKrona: "kr.",
+          czechKrona: "Kč",
+          norwegianKrone: ",-",
+          polandZloty: ",-",
+          romanianLeu: "lei",
+        };
+        const relativePriceFormat = {
+          DE: {
+            currency: currencies.euro,
+          },
+          CH: {
+            currency: currencies.swissFranc,
+          },
+          AT: {
+            currency: currencies.euro,
+          },
+          FR: {
+            currency: currencies.euro,
+          },
+          BE: {
+            currency: currencies.euro,
+          },
+          IT: {
+            currency: currencies.euro,
+          },
+          UK: {
+            currency: currencies.poundSterling,
+          },
+          ES: {
+            currency: currencies.euro,
+          },
+          PT: {
+            currency: currencies.euro,
+          },
+          PL: {
+            currency: currencies.polandZloty,
+          },
+          HU: {
+            currency: currencies.hungarianForint,
+          },
+          NL: {
+            currency: currencies.euro,
+          },
+          SE: {
+            currency: currencies.swedishKrona,
+          },
+          DK: {
+            currency: currencies.danishKrona,
+          },
+          CZ: {
+            currency: currencies.czechKrona,
+          },
+          FI: {
+            currency: currencies.euro,
+          },
+          NO: {
+            currency: currencies.norwegianKrone,
+          },
+          SK: {
+            currency: currencies.euro,
+          },
+          RO: {
+            currency: currencies.romanianLeu,
+          },
+        };
+        const priceFormats = {
+          de: (price) => {
+            return (
+              normalize(price, "de") + " " + relativePriceFormat.DE.currency
+            );
+          },
+          chde: (price) => {
+            return (
+              normalize(price, "chde") + " " + relativePriceFormat.CH.currency
+            );
+          },
+          chfr: (price) => {
+            return (
+              normalize(price, "chfr") + " " + relativePriceFormat.CH.currency
+            );
+          },
+          chit: (price) => {
+            return (
+              normalize(price, "chit") + " " + relativePriceFormat.CH.currency
+            );
+          },
+          at: (price) => {
+            return (
+              normalize(price, "at") + " " + relativePriceFormat.AT.currency
+            );
+          },
+          fr: (price) => {
+            return (
+              normalize(price, "fr") + " " + relativePriceFormat.FR.currency
+            );
+          },
+          benl: (price) => {
+            return (
+              normalize(price, "benl") + " " + relativePriceFormat.BE.currency
+            );
+          },
+          befr: (price) => {
+            return (
+              normalize(price, "befr") + " " + relativePriceFormat.BE.currency
+            );
+          },
+          it: (price) => {
+            return (
+              normalize(price, "it") + " " + relativePriceFormat.IT.currency
+            );
+          },
+          uk: (price) => {
+            return relativePriceFormat.UK.currency + normalize(price, "uk");
+          },
+          es: (price) => {
+            return (
+              normalize(price, "es") + " " + relativePriceFormat.ES.currency
+            );
+          },
+          pt: (price) => {
+            return (
+              normalize(price, "pt") + " " + relativePriceFormat.PT.currency
+            );
+          },
+          pl: (price) => {
+            return normalize(price, "pl") + relativePriceFormat.PL.currency;
+          },
+          hu: (price) => {
+            return (
+              normalize(price, "hu") + " " + relativePriceFormat.HU.currency
+            );
+          },
+          nl: (price) => {
+            return (
+              relativePriceFormat.NL.currency + " " + normalize(price, "nl")
+            );
+          },
+          se: (price) => {
+            return normalize(price, "se") + relativePriceFormat.SE.currency;
+          },
+          dk: (price) => {
+            return (
+              normalize(price, "dk") + " " + relativePriceFormat.DK.currency
+            );
+          },
+          cz: (price) => {
+            return (
+              normalize(price, "cz") + " " + relativePriceFormat.CZ.currency
+            );
+          },
+          fi: (price) => {
+            return (
+              normalize(price, "fi") + " " + relativePriceFormat.FI.currency
+            );
+          },
+          no: (price) => {
+            return normalize(price, "no") + relativePriceFormat.NO.currency;
+          },
+          sk: (price) => {
+            return (
+              normalize(price, "sk") + " " + relativePriceFormat.SK.currency
+            );
+          },
+          ro: (price) => {
+            return (
+              normalize(price, "ro") + " " + relativePriceFormat.RO.currency
+            );
+          },
+        };
+        const formatPrice = {
+          de: (price) => {
+            price = price.replace(".00", ",00");
+            price = price.replace(".99", ",99");
+
+            if (price.length === 8) {
+              price = price.split("").toSpliced(2, 0, ".").join("");
+            }
+
+            if (price.length === 7) {
+              price = price.split("").toSpliced(1, 0, ".").join("");
+            }
+
+            return price;
+          },
+          chde: (price) => {
+            if (price.length === 8) {
+              price = price.split("").toSpliced(2, 0, "'").join("");
+            }
+
+            if (price.length === 7) {
+              price = price.split("").toSpliced(1, 0, "'").join("");
+            }
+
+            return price;
+          },
+          chit: (price) => {
+            if (price.length === 8) {
+              price = price.split("").toSpliced(2, 0, "'").join("");
+            }
+
+            if (price.length === 7) {
+              price = price.split("").toSpliced(1, 0, "'").join("");
+            }
+
+            return price;
+          },
+          chfr: (price) => {
+            if (price.length === 8) {
+              price = price.split("").toSpliced(2, 0, "'").join("");
+            }
+
+            if (price.length === 7) {
+              price = price.split("").toSpliced(1, 0, "'").join("");
+            }
+
+            return price;
+          },
+          at: (price) => {
+            price = price.replace(".00", ",00");
+            price = price.replace(".99", ",99");
+
+            if (price.length === 8) {
+              price = price.split("").toSpliced(2, 0, ".").join("");
+            }
+
+            if (price.length === 7) {
+              price = price.split("").toSpliced(1, 0, ".").join("");
+            }
+
+            return price;
+          },
+          fr: (price) => {
+            price = price.replace(".00", ",00");
+            price = price.replace(".99", ",99");
+
+            if (price.length === 8) {
+              price = price.split("").toSpliced(2, 0, " ").join("");
+            }
+
+            if (price.length === 7) {
+              price = price.split("").toSpliced(1, 0, " ").join("");
+            }
+
+            return price;
+          },
+          befr: (price) => {
+            price = price.replace(".00", ",00");
+            price = price.replace(".99", ",99");
+
+            if (price.length === 8) {
+              price = price.split("").toSpliced(2, 0, ".").join("");
+            }
+
+            if (price.length === 7) {
+              price = price.split("").toSpliced(1, 0, ".").join("");
+            }
+
+            return price;
+          },
+          benl: (price) => {
+            price = price.replace(".00", ",00");
+            price = price.replace(".99", ",99");
+
+            if (price.length === 8) {
+              price = price.split("").toSpliced(2, 0, ".").join("");
+            }
+
+            if (price.length === 7) {
+              price = price.split("").toSpliced(1, 0, ".").join("");
+            }
+
+            return price;
+          },
+          it: (price) => {
+            price = price.replace(".00", ",00");
+            price = price.replace(".99", ",99");
+
+            if (price.length === 8) {
+              price = price.split("").toSpliced(2, 0, ".").join("");
+            }
+
+            if (price.length === 7) {
+              price = price.split("").toSpliced(1, 0, ".").join("");
+            }
+
+            return price;
+          },
+          uk: (price) => {
+            if (price.length === 8) {
+              price = price.split("").toSpliced(2, 0, ",").join("");
+            }
+
+            if (price.length === 7) {
+              price = price.split("").toSpliced(1, 0, ",").join("");
+            }
+
+            return price;
+          },
+          es: (price) => {
+            price = price.replace(".00", ",00");
+            price = price.replace(".99", ",99");
+
+            if (price.length === 8) {
+              price = price.split("").toSpliced(2, 0, ".").join("");
+            }
+
+            if (price.length === 7) {
+              price = price.split("").toSpliced(1, 0, ".").join("");
+            }
+
+            return price;
+          },
+          pt: (price) => {
+            price = price.replace(".00", ",00");
+            price = price.replace(".99", ",99");
+
+            if (price.length === 8) {
+              price = price.split("").toSpliced(2, 0, ".").join("");
+            }
+
+            if (price.length === 7) {
+              price = price.split("").toSpliced(1, 0, ".").join("");
+            }
+
+            return price;
+          },
+          pl: (price) => {
+            price = price.replace(".00", "");
+            price = price.replace(".99", "");
+
+            if (price.length === 5) {
+              price = price.split("").toSpliced(2, 0, " ").join("");
+            }
+
+            if (price.length === 4) {
+              price = price.split("").toSpliced(1, 0, " ").join("");
+            }
+
+            return price;
+          },
+          hu: (price) => {
+            price = price.replace(".00", "");
+            price = price.replace(".99", "");
+
+            if (price.length === 7) {
+              price = price
+                .split("")
+                .toSpliced(1, 0, " ")
+                .toSpliced(5, 0, " ")
+                .join("");
+            }
+
+            if (price.length === 6) {
+              price = price.split("").toSpliced(3, 0, " ").join("");
+            }
+
+            if (price.length === 5) {
+              price = price.split("").toSpliced(2, 0, " ").join("");
+            }
+
+            if (price.length === 4) {
+              price = price.split("").toSpliced(1, 0, " ").join("");
+            }
+
+            return price;
+          },
+          nl: (price) => {
+            price = price.replace(".00", ",00");
+            price = price.replace(".99", ",99");
+
+            if (price.length === 8) {
+              price = price.split("").toSpliced(2, 0, ".").join("");
+            }
+
+            if (price.length === 7) {
+              price = price.split("").toSpliced(1, 0, ".").join("");
+            }
+
+            return price;
+          },
+          se: (price) => {
+            price = price.replace(".00", "");
+
+            if (price.length === 5) {
+              price = price.split("").toSpliced(2, 0, " ").join("");
+            }
+
+            if (price.length === 4) {
+              price = price.split("").toSpliced(1, 0, " ").join("");
+            }
+
+            return price;
+          },
+          dk: (price) => {
+            price = price.replace(".00", "");
+
+            if (price.length === 5) {
+              price = price.split("").toSpliced(2, 0, ".").join("");
+            }
+
+            if (price.length === 4) {
+              price = price.split("").toSpliced(1, 0, ".").join("");
+            }
+
+            return price;
+          },
+          cz: (price) => {
+            price = price.replace(".00", "");
+
+            if (price.length === 6) {
+              price = price.split("").toSpliced(3, 0, " ").join("");
+            }
+
+            if (price.length === 5) {
+              price = price.split("").toSpliced(2, 0, " ").join("");
+            }
+
+            if (price.length === 4) {
+              price = price.split("").toSpliced(1, 0, " ").join("");
+            }
+
+            return price;
+          },
+          fi: (price) => {
+            price = price.replace(".00", ",00");
+            price = price.replace(".99", ",99");
+
+            if (price.length === 8) {
+              price = price.split("").toSpliced(2, 0, " ").join("");
+            }
+
+            if (price.length === 7) {
+              price = price.split("").toSpliced(1, 0, " ").join("");
+            }
+
+            return price;
+          },
+          no: (price) => {
+            price = price.replace(".00", "");
+
+            if (price.length === 5) {
+              price = price.split("").toSpliced(2, 0, ".").join("");
+            }
+
+            if (price.length === 4) {
+              price = price.split("").toSpliced(1, 0, ".").join("");
+            }
+
+            return price;
+          },
+          sk: (price) => {
+            price = price.replace(".00", ",00");
+            price = price.replace(".99", ",99");
+
+            if (price.length === 8) {
+              price = price.split("").toSpliced(2, 0, " ").join("");
+            }
+
+            if (price.length === 7) {
+              price = price.split("").toSpliced(1, 0, " ").join("");
+            }
+
+            return price;
+          },
+          ro: (price) => {
+            if (price.length === 7) {
+              price = price.replace(".00", "");
+              price = price.split("").toSpliced(1, 0, ".").join("");
+            }
+
+            if (price.length === 6) {
+              price = price.replace(".99", ",99");
+              price = price;
+            }
+
+            if (price.length === 5) {
+              price = price.replace(".99", ",99");
+              price = price;
+            }
+
+            return price;
+          },
+        };
+        function normalize(price, country) {
+          return formatPrice[country](price);
+        }
+
+        return {
+          ...product,
+          lowPrice: priceFormats[slug](product.lowPrice),
+          highPrice:
+            product.highPrice !== null
+              ? priceFormats[slug](
+                  product.country === "pl"
+                    ? Math.ceil(product.highPrice).toString()
+                    : product.highPrice
+                )
+              : "",
+        };
+      }
+      function copy(data) {
+        navigator.clipboard.writeText(data);
+      }
+      function prepareComponents(components, slug, payload) {
+        const parsedComponents = {};
+        for (const key in components) {
+          const component = components[key];
+          if ("data" in component) {
+            if (slug in component.data) {
+              parsedComponents[key] = Mustache.render(component.value, {
+                ...component.data[slug],
+                ...payload,
+              });
+            } else {
+              parsedComponents[key] = "";
+            }
+          } else {
+            parsedComponents[key] = Mustache.render(component.value, payload);
+          }
+        }
+        return parsedComponents;
+      }
+      function render(template, payload) {
+        const rendered = Mustache.render(template, payload);
+        return rendered;
+      }
+      function createSelect({ options, default_title, handleChange }) {
+        const select = document.createElement("select");
+        select.addEventListener("change", handleChange);
+        const _options = [];
+        for (const slug of options) {
+          const option = document.createElement("option");
+          option.textContent = slug;
+          option.value = slug;
+          _options.push(option);
+        }
+        const option = document.createElement("option");
+        option.textContent = default_title || "Select";
+        option.defaultSelected = true;
+        option.value = "default";
+        _options.push(option);
+        select.append(..._options);
+        toolbar.appendChild(select);
+        return select;
+      }
+      function createComponent() {
+        const btn = document.createElement("button");
+        btn.textContent = "Stringify component";
+        const dialog = document.createElement("dialog");
+        const dialog_container = document.createElement("div");
+        dialog_container.style =
+          "padding: .4rem; display: flex; flex-direction: column; gap: 0.4rem;";
+        const dialog_title = document.createElement("h3");
+        dialog_title.style = "margin: 0";
+        dialog_title.textContent = "Stringify component";
+        const dialog_textarea = document.createElement("textarea");
+        dialog_textarea.style = "width: 660px; height: 440px;";
+        dialog_textarea.addEventListener("change", (ev) => {
+          state.title = ev.target.value;
+        });
+        const dialog_button_create = document.createElement("button");
+        dialog_button_create.textContent = "Copy";
+        dialog_button_create.addEventListener("click", (ev) => {
+          try {
+            const json_string = JSON.stringify(state.title);
+            navigator.clipboard.writeText(json_string);
+            dialog.close();
+          } catch (error) {
+            alert("JSON component parsing error.");
+          }
+        });
+        const dialog_button_close = document.createElement("button");
+        dialog_button_close.textContent = "Close";
+        dialog_button_close.addEventListener("click", (ev) => {
+          dialog.close();
+        });
+        dialog_container.appendChild(dialog_title);
+        dialog_container.appendChild(dialog_textarea);
+        dialog_container.appendChild(dialog_button_create);
+        dialog_container.appendChild(dialog_button_close);
+        dialog.appendChild(dialog_container);
+        btn.addEventListener("click", () => {
+          dialog.showModal();
+        });
+        toolbar.appendChild(btn);
+        state.create_component_node = btn;
+        document.body.appendChild(dialog);
+      }
+      function copyTemplate() {
+        const btn = document.createElement("button");
+        btn.textContent = "Copy";
+        btn.addEventListener("click", () => copy(state.html));
+        toolbar.appendChild(btn);
+        state.copy_component_node = btn;
+      }
+      function getContextSlug(context, slug) {
+        let new_context = {};
+        if (slug in context) {
+          for (const k of Object.keys(context[slug])) {
+            const data = context[slug][k];
+            new_context[k] = data;
+          }
+        }
+        for (const key of Object.keys(context)) {
+          const item = context[key];
+          if (typeof item !== "object") {
+            new_context[key] = item;
+          }
+        }
+        return new_context;
+      }
+      function getComponentsSlug(context) {
+        if ("components" in context) {
+          return context["components"];
+        }
+      }
+      function getProductsSlug(context, slug, { tracking, id }) {
+        const languageHREF = {
+          de: "germanDE",
+          at: "germanDE",
+          chde: "german",
+          chfr: "french",
+          chit: "italian",
+          fr: "french",
+          it: "italian",
+          uk: "english",
+          pl: "polish",
+          sk: "slovak",
+          se: "swedish",
+          es: "spanish",
+          nl: "dutch",
+          pt: "portugal",
+          hu: "Hungarian",
+          dk: "danish",
+          cz: "czech",
+          fi: "finnish",
+          no: "norsk",
+          ro: "romanian",
+          befr: "french",
+          benl: "dutch",
+        };
+        if ("products" in context) {
+          const products = context["products"];
+          if (products) {
+            let country_products = products.filter(
+              (product) => product.country === slug
+            );
+
+            country_products = country_products.map((product) => {
+              const parsedPriceProduct = parsePrice(product, slug);
+              let href =
+                parsedPriceProduct.href.origin +
+                parsedPriceProduct.href.hrefs[languageHREF[slug]].value +
+                ".html";
+              if ("Newsletter" === state.selected_context) {
+                href = href + tracking + id;
+              }
+              return {
+                ...parsedPriceProduct,
+                href: href,
+              };
+            });
+            return country_products;
+          }
+        } else {
+          return null;
+        }
+      }
+      function getSelectedContexWithProduct({ products, context }) {
+        const context_products = {};
+        for (const key of Object.keys(context)) {
+          if (key.includes("Product main id ")) {
+            context_products[key] = context[key];
+          }
+        }
+
+        for (const key of Object.keys(context_products)) {
+          const item = context_products[key];
+          for (const product of products) {
+            if (Number(product.main_id) === Number(item)) {
+              for (const k of Object.keys(product)) {
+                if (k === "main_id" || k === "src" || k === "country") continue;
+                const data = product[k];
+                context_products[key + " " + k] = data;
+              }
+            }
+          }
+        }
+        return context_products;
+      }
+      function handleContextChange(ev) {
+        state.selected_context = ev.target.value;
+        state.select_slug_node.value = "default";
+        state.target_iframe.setAttribute("srcdoc", "");
+      }
+      function handleSlugChange(ev) {
+        if (!state.selected_context) {
+          alert("Select context");
+          return;
+        }
+        const slug = ev.target.value;
+        const selected_template = state.selected_template;
+        const context = selected_template.context;
+        const selected_context =
+          selected_template.template_context[state.selected_context];
+
+        const slug_context = getContextSlug(context, slug);
+        const slug_components = getComponentsSlug(selected_context);
+        const slug_products = getProductsSlug(selected_context, slug, {
+          tracking: context["tracking"] || "",
+          id: context[slug]["id"] || "",
+        });
+
+        const selected_context_with_products = getSelectedContexWithProduct({
+          products: slug_products,
+          context: selected_context,
+        });
+        const templateContext = JSON.parse(
+          Mustache.render(JSON.stringify(selected_context), {
+            ...slug_context,
+            slug,
+          })
+        );
+
+        // get id
+        // slug_context
+        // tracking, server etc...
+        const parsedComponents = prepareComponents(slug_components, slug, {
+          ...templateContext,
+          ...slug_context,
+          slug,
+        });
+
+        const payload = {
+          ...parsedComponents,
+          ...context,
+          ...templateContext,
+          ...slug_context,
+          ...selected_context_with_products,
+          slug,
+        };
+        const html = render(state.selected_template.template, payload);
+        state.html = html;
+        state.target_iframe.setAttribute("srcdoc", html);
+      }
+      function handleTemplateChange(ev) {
+        const template_name = ev.target.value;
+        const selected_template = state.db.templates[template_name];
+        const { template_context, context } = selected_template;
+        state.selected_template = selected_template;
+
+        // clear UI on template select
+        unmountUI();
+        showDescription(selected_template?.description);
+        createTargetNode();
+        createComponent();
+        state.select_context_node = createSelect({
+          default_title: "Select context",
+          options: Object.keys(template_context),
+          handleChange: handleContextChange,
+        });
+        state.select_slug_node = createSelect({
+          default_title: "Select slug",
+          options: Object.keys(context).filter(item => typeof context[item] !== "string"),
+          handleChange: handleSlugChange,
+        });
+        copyTemplate();
+      }
+      function unmountUI() {
+        state.select_context_node?.remove();
+        state.select_slug_node?.remove();
+        state.create_component_node?.remove();
+        state.copy_component_node?.remove();
+        state.target_iframe?.remove();
+        state.description_node?.remove();
+      }
+      function mountMustache() {
+        const script = document.createElement("script");
+        script.src = "https://unpkg.com/mustache@latest";
+        document.body.appendChild(script);
+      }
+      function showDescription(description) {
+        const btn = document.createElement("button");
+        btn.textContent = "Description";
+        const dialog = document.createElement("dialog");
+        const dialog_container = document.createElement("div");
+        dialog_container.style =
+          "padding: .4rem; display: flex; flex-direction: column; gap: 0.4rem;";
+        const dialog_title = document.createElement("h3");
+        dialog_title.style = "margin: 0";
+        dialog_title.textContent = "Description";
+        const dialog_description = document.createElement("p");
+        dialog_description.innerText =
+          description || "Description is not provided";
+        const dialog_button_close = document.createElement("button");
+        dialog_button_close.textContent = "Close";
+        dialog_button_close.addEventListener("click", (ev) => {
+          dialog.close();
+        });
+        dialog_container.appendChild(dialog_title);
+        dialog_container.appendChild(dialog_description);
+        dialog_container.appendChild(dialog_button_close);
+        dialog.appendChild(dialog_container);
+        btn.addEventListener("click", () => {
+          dialog.showModal();
+        });
+        toolbar.appendChild(btn);
+        state.description_node = btn;
+        document.body.appendChild(dialog);
+      }
+      document.body.appendChild(toolbar);
+      try {
+        mountMustache();
+        await loadDB();
+        if (state?.db?.templates) {
+          state.select_template_node = createSelect({
+            default_title: "Select template",
+            options: Object.keys(state?.db?.templates),
+            handleChange: handleTemplateChange,
+          });
+        }
+      } catch (error) {
+        alert(error.message);
+      }
+    </script>
+  </body>
+</html>
